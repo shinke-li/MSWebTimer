@@ -1,37 +1,62 @@
 import streamlit as st
 import time
 from datetime import datetime
-import base64
 
-def get_audio_script(sound_type):
-    # 创建一个JavaScript函数来播放声音
-    audio_script = f"""
+def notify_user():
+    # 创建通知和震动脚本
+    notification_script = """
         <script>
-            function playSound() {{
-                for(let i=0; i<3; i++) {{
-                    setTimeout(() => {{
-                        const audio = new Audio("data:audio/wav;base64,{sound_type}");
-                        audio.play().catch(e => console.log('Audio play failed:', e));
-                    }}, i * 500);
-                }}
-            }}
-            // 立即执行
-            playSound();
+            function notify() {
+                // 尝试震动
+                if ('vibrate' in navigator) {
+                    navigator.vibrate([200, 100, 200, 100, 200]);
+                }
+                
+                // 播放系统提示音
+                try {
+                    const context = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = context.createOscillator();
+                    const gainNode = context.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(context.destination);
+                    
+                    oscillator.type = 'sine';
+                    oscillator.frequency.value = 800;
+                    gainNode.gain.value = 0.5;
+                    
+                    oscillator.start();
+                    setTimeout(() => {
+                        oscillator.stop();
+                        setTimeout(() => {
+                            oscillator.frequency.value = 600;
+                            oscillator.start();
+                            setTimeout(() => {
+                                oscillator.stop();
+                                setTimeout(() => {
+                                    oscillator.frequency.value = 800;
+                                    oscillator.start();
+                                    setTimeout(() => oscillator.stop(), 200);
+                                }, 100);
+                            }, 200);
+                        }, 100);
+                    }, 200);
+                } catch(e) {
+                    console.error('Error playing sound:', e);
+                }
+            }
+            
+            // 立即执行三次
+            notify();
+            setTimeout(notify, 500);
+            setTimeout(notify, 1000);
         </script>
     """
-    return audio_script
+    return notification_script
 
 def main():
     # 设置页面宽度
     st.set_page_config(layout="wide")
-
-    # 加载音频文件并转换为base64
-    if 'audio_bytes1' not in st.session_state:
-        with open('phase1.wav', 'rb') as f:
-            st.session_state.audio_bytes1 = base64.b64encode(f.read()).decode()
-    if 'audio_bytes2' not in st.session_state:
-        with open('phase2.wav', 'rb') as f:
-            st.session_state.audio_bytes2 = base64.b64encode(f.read()).decode()
     
     # 页面标题居中
     st.markdown("<h1 style='text-align: center;'>气体检测计时器</h1>", unsafe_allow_html=True)
@@ -47,10 +72,8 @@ def main():
         st.session_state.sample_progress_value = 0
     if 'zero_progress_value' not in st.session_state:
         st.session_state.zero_progress_value = 0
-    if 'play_sound' not in st.session_state:
-        st.session_state.play_sound = False
-    if 'sound_type' not in st.session_state:
-        st.session_state.sound_type = None
+    if 'notify' not in st.session_state:
+        st.session_state.notify = False
         
     # 输入参数
     col1, col2 = st.columns(2)
@@ -74,15 +97,11 @@ def main():
     # 时间显示 - 居中
     time_display = st.empty()
     
-    # 处理声音播放
-    audio_placeholder = st.empty()
-    if st.session_state.play_sound:
-        if st.session_state.sound_type == 'phase1':
-            audio_placeholder.markdown(get_audio_script(st.session_state.audio_bytes1), unsafe_allow_html=True)
-        elif st.session_state.sound_type == 'phase2':
-            audio_placeholder.markdown(get_audio_script(st.session_state.audio_bytes2), unsafe_allow_html=True)
-        st.session_state.play_sound = False
-        st.session_state.sound_type = None
+    # 声音通知处理
+    notification_placeholder = st.empty()
+    if st.session_state.notify:
+        notification_placeholder.markdown(notify_user(), unsafe_allow_html=True)
+        st.session_state.notify = False
     
     # 居中的按钮列
     col1, col2, col3 = st.columns([2, 1, 2])
@@ -93,7 +112,6 @@ def main():
             font-size: 24px;
             height: 60px;
         }
-        /* 调整移动设备上的按钮大小 */
         @media (max-width: 768px) {
             div.stButton > button {
                 font-size: 20px;
@@ -116,7 +134,6 @@ def main():
                 st.session_state.timer_running = True
                 st.rerun()
         else:
-            # 在检测或清洗过程中显示禁用的按钮
             st.button("进行中...", disabled=True, key="disabled_button", use_container_width=True)
     
     # 计时器逻辑
@@ -134,9 +151,8 @@ def main():
                 time_display.markdown(f"<div style='text-align: center; font-size: 24px;'>剩余时间: {int(total_sample_time - elapsed)}秒</div>", unsafe_allow_html=True)
                 time.sleep(0.1)
             
-            # 气袋检测完成，播放提示音
-            st.session_state.play_sound = True
-            st.session_state.sound_type = 'phase1'
+            # 气袋检测完成，触发通知
+            st.session_state.notify = True
             st.session_state.phase = "等待清洗"
             st.session_state.timer_running = False
             st.rerun()
@@ -154,9 +170,8 @@ def main():
                 time_display.markdown(f"<div style='text-align: center; font-size: 24px;'>剩余时间: {int(total_zero_time - elapsed)}秒</div>", unsafe_allow_html=True)
                 time.sleep(0.1)
             
-            # 清洗完成，播放提示音
-            st.session_state.play_sound = True
-            st.session_state.sound_type = 'phase2'
+            # 清洗完成，触发通知
+            st.session_state.notify = True
             
             # 重置所有状态
             st.session_state.timer_running = False
