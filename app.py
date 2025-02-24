@@ -3,28 +3,16 @@ import time
 from datetime import datetime
 import base64
 
-def get_audio_html(sound_type):
-    return f'''
-        <audio id="audioPlayer" style="display:none;">
-            <source src="data:audio/wav;base64,{sound_type}" type="audio/wav">
-        </audio>
-        <script>
-            var audio = document.getElementById('audioPlayer');
-            audio.volume = 1;
-            audio.play();
-        </script>
-    '''
-
 def main():
     st.set_page_config(layout="wide")
 
     # 加载音频文件
     if 'audio_bytes1' not in st.session_state:
         with open('phase1.wav', 'rb') as f:
-            st.session_state.audio_bytes1 = base64.b64encode(f.read()).decode()
+            st.session_state.audio_bytes1 = f.read()  # 不需要base64编码
     if 'audio_bytes2' not in st.session_state:
         with open('phase2.wav', 'rb') as f:
-            st.session_state.audio_bytes2 = base64.b64encode(f.read()).decode()
+            st.session_state.audio_bytes2 = f.read()  # 不需要base64编码
     
     # 初始化会话状态
     if 'audio_initialized' not in st.session_state:
@@ -46,30 +34,25 @@ def main():
 
     st.markdown("<h1 style='text-align: center;'>气体检测计时器</h1>", unsafe_allow_html=True)
 
-    # 使用Streamlit原生按钮进行音频初始化
+    # 初始化音频系统
     if not st.session_state.audio_initialized:
         st.markdown("<h3 style='text-align: center; color: #ff4b4b;'>请先初始化音频系统</h3>", unsafe_allow_html=True)
         init_col1, init_col2, init_col3 = st.columns([2, 1, 2])
         with init_col2:
             if st.button("初始化音频系统", key="init_audio", use_container_width=True, type="primary"):
-                # 播放一个短暂的无声音频来初始化系统
-                st.markdown('''
-                    <audio id="initAudio" autoplay style="display:none;">
-                        <source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA" type="audio/wav">
-                    </audio>
-                ''', unsafe_allow_html=True)
                 st.session_state.audio_initialized = True
+                st.audio(st.session_state.audio_bytes1, format='audio/wav')
                 st.rerun()
-
-    # 音频播放器容器
-    audio_placeholder = st.empty()
     
-    # 仅在音频已初始化时显示和处理声音
-    if st.session_state.audio_initialized and st.session_state.play_sound:
+    # 音频播放器容器
+    audio_player = st.empty()
+    
+    # 根据状态播放声音
+    if st.session_state.play_sound and st.session_state.audio_initialized:
         if st.session_state.sound_type == 'phase1':
-            audio_placeholder.markdown(get_audio_html(st.session_state.audio_bytes1), unsafe_allow_html=True)
+            audio_player.audio(st.session_state.audio_bytes1, format='audio/wav')
         elif st.session_state.sound_type == 'phase2':
-            audio_placeholder.markdown(get_audio_html(st.session_state.audio_bytes2), unsafe_allow_html=True)
+            audio_player.audio(st.session_state.audio_bytes2, format='audio/wav')
         st.session_state.play_sound = False
         st.session_state.sound_type = None
 
@@ -108,7 +91,6 @@ def main():
         """
         st.markdown(button_style, unsafe_allow_html=True)
         
-        # 只有在音频初始化后才启用按钮
         if st.session_state.audio_initialized:
             if st.session_state.phase == "待开始":
                 if st.button("开始", key="start_button", use_container_width=True):
@@ -116,6 +98,8 @@ def main():
                     st.session_state.timer_running = True
                     st.rerun()
             elif st.session_state.phase == "等待清洗":
+                # 直接在这里播放第一阶段完成的声音
+                audio_player.audio(st.session_state.audio_bytes1, format='audio/wav')
                 if st.button("清洗", key="wash_button", use_container_width=True):
                     st.session_state.phase = "清洗中"
                     st.session_state.timer_running = True
@@ -123,7 +107,7 @@ def main():
             else:
                 st.button("进行中...", disabled=True, key="disabled_button", use_container_width=True)
 
-    # 计时器逻辑保持不变
+    # 计时器逻辑
     if st.session_state.timer_running:
         if st.session_state.phase == "气袋检测中":
             total_sample_time = sample_gas_time * sample_gas_count
@@ -157,8 +141,8 @@ def main():
                 time_display.markdown(f"<div style='text-align: center; font-size: 24px;'>剩余时间: {int(total_zero_time - elapsed)}秒</div>", unsafe_allow_html=True)
                 time.sleep(0.1)
             
-            st.session_state.play_sound = True
-            st.session_state.sound_type = 'phase2'
+            # 直接播放第二阶段完成的声音
+            audio_player.audio(st.session_state.audio_bytes2, format='audio/wav')
             
             # 重置状态
             st.session_state.timer_running = False
