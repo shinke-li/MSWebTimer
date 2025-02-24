@@ -89,9 +89,9 @@ def main():
         ''', unsafe_allow_html=True)
 
         # 检查URL参数来更新初始化状态
-        if st.experimental_get_query_params().get('audio_init') == ['true']:
+        if st.query_params.get('audio_init') == 'true':
             st.session_state.audio_initialized = True
-            st.experimental_set_query_params()  # 清除URL参数
+            st.query_params.clear()  # 清除URL参数
             st.rerun()
 
     # 音频播放器容器
