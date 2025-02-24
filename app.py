@@ -4,11 +4,9 @@ from datetime import datetime
 import base64
 
 def get_audio_html(sound_file):
-    # 读取并编码音频文件
     with open(sound_file, 'rb') as f:
         audio_bytes = base64.b64encode(f.read()).decode()
     
-    # 创建简单的 HTML audio 标签
     audio_tag = f"""
         <audio id="player" webkit-playsinline="true" playsinline="true" preload="auto">
             <source src="data:audio/mp3;base64,{audio_bytes}" type="audio/mp3">
@@ -16,6 +14,17 @@ def get_audio_html(sound_file):
         <button onclick="document.getElementById('player').play()" style="display: none;">Play</button>
     """
     return audio_tag
+
+def set_background_color(color):
+    css = f"""
+    <style>
+        .stApp {{
+            background-color: {color};
+            transition: background-color 0.5s ease;
+        }}
+    </style>
+    """
+    st.markdown(css, unsafe_allow_html=True)
 
 def main():
     st.set_page_config(layout="wide")
@@ -31,7 +40,15 @@ def main():
         st.session_state.sample_progress_value = 0
     if 'zero_progress_value' not in st.session_state:
         st.session_state.zero_progress_value = 0
-    
+
+    # 设置背景颜色
+    if st.session_state.phase == "气袋检测中":
+        set_background_color("#90EE90")  # 浅绿色
+    elif st.session_state.phase == "清洗中":
+        set_background_color("#87CEEB")  # 浅蓝色
+    else:
+        set_background_color("white")
+
     # 创建固定的音频元素
     audio_container1 = st.empty()
     audio_container2 = st.empty()
@@ -80,7 +97,6 @@ def main():
                 st.session_state.timer_running = True
                 st.rerun()
         elif st.session_state.phase == "等待清洗":
-            # 播放第一个音频，同时显示清洗按钮
             audio_container1.markdown(get_audio_html('phase1.mp3'), unsafe_allow_html=True)
             if st.button("清洗", key="wash_button", use_container_width=True):
                 st.session_state.phase = "清洗中"
@@ -121,7 +137,6 @@ def main():
                 time_display.markdown(f"<div style='text-align: center; font-size: 24px;'>剩余时间: {int(total_zero_time - elapsed)}秒</div>", unsafe_allow_html=True)
                 time.sleep(0.1)
             
-            # 播放第二个音频
             audio_container2.markdown(get_audio_html('phase2.mp3'), unsafe_allow_html=True)
             
             # 重置状态
