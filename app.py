@@ -3,16 +3,23 @@ import time
 from datetime import datetime
 import base64
 
-def get_audio_html(sound_type):
-    # 创建三个连续的自动播放音频元素
-    audio_html = ""
-    for i in range(3):
-        audio_html += f"""
-            <audio autoplay="true">
-                <source src="data:audio/wav;base64,{sound_type}" type="audio/wav">
-            </audio>
-            """
-    return audio_html
+def get_audio_script(sound_type):
+    # 创建一个JavaScript函数来播放声音
+    audio_script = f"""
+        <script>
+            function playSound() {{
+                for(let i=0; i<3; i++) {{
+                    setTimeout(() => {{
+                        const audio = new Audio("data:audio/wav;base64,{sound_type}");
+                        audio.play().catch(e => console.log('Audio play failed:', e));
+                    }}, i * 500);
+                }}
+            }}
+            // 立即执行
+            playSound();
+        </script>
+    """
+    return audio_script
 
 def main():
     # 设置页面宽度
@@ -67,18 +74,13 @@ def main():
     # 时间显示 - 居中
     time_display = st.empty()
     
-    # 隐藏的音频播放器
+    # 处理声音播放
     audio_placeholder = st.empty()
     if st.session_state.play_sound:
         if st.session_state.sound_type == 'phase1':
-            # 短暂延迟后播放每个声音
-            audio_placeholder.markdown(get_audio_html(st.session_state.audio_bytes1), unsafe_allow_html=True)
-            time.sleep(0.5)  # 在每次播放之间添加短暂延迟
-            
+            audio_placeholder.markdown(get_audio_script(st.session_state.audio_bytes1), unsafe_allow_html=True)
         elif st.session_state.sound_type == 'phase2':
-            audio_placeholder.markdown(get_audio_html(st.session_state.audio_bytes2), unsafe_allow_html=True)
-            time.sleep(0.5)  # 在每次播放之间添加短暂延迟
-            
+            audio_placeholder.markdown(get_audio_script(st.session_state.audio_bytes2), unsafe_allow_html=True)
         st.session_state.play_sound = False
         st.session_state.sound_type = None
     
@@ -90,6 +92,14 @@ def main():
         div.stButton > button {
             font-size: 24px;
             height: 60px;
+        }
+        /* 调整移动设备上的按钮大小 */
+        @media (max-width: 768px) {
+            div.stButton > button {
+                font-size: 20px;
+                height: 50px;
+                width: 100% !important;
+            }
         }
         </style>
         """
