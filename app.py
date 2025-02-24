@@ -4,14 +4,14 @@ from datetime import datetime
 import base64
 
 def get_audio_html(sound_type):
-    # 创建三个连续的音频元素
+    # 创建三个连续的自动播放音频元素
     audio_html = ""
     for i in range(1):
         audio_html += f"""
-            <audio autoplay>
+            <audio autoplay="true">
                 <source src="data:audio/wav;base64,{sound_type}" type="audio/wav">
             </audio>
-        """
+            """
     return audio_html
 
 def main():
@@ -40,6 +40,10 @@ def main():
         st.session_state.sample_progress_value = 0
     if 'zero_progress_value' not in st.session_state:
         st.session_state.zero_progress_value = 0
+    if 'play_sound' not in st.session_state:
+        st.session_state.play_sound = False
+    if 'sound_type' not in st.session_state:
+        st.session_state.sound_type = None
         
     # 输入参数
     col1, col2 = st.columns(2)
@@ -63,8 +67,20 @@ def main():
     # 时间显示 - 居中
     time_display = st.empty()
     
-    # 音频播放器占位符
+    # 隐藏的音频播放器
     audio_placeholder = st.empty()
+    if st.session_state.play_sound:
+        if st.session_state.sound_type == 'phase1':
+            # 短暂延迟后播放每个声音
+            audio_placeholder.markdown(get_audio_html(st.session_state.audio_bytes1), unsafe_allow_html=True)
+            time.sleep(0.5)  # 在每次播放之间添加短暂延迟
+            
+        elif st.session_state.sound_type == 'phase2':
+            audio_placeholder.markdown(get_audio_html(st.session_state.audio_bytes2), unsafe_allow_html=True)
+            time.sleep(0.5)  # 在每次播放之间添加短暂延迟
+            
+        st.session_state.play_sound = False
+        st.session_state.sound_type = None
     
     # 居中的按钮列
     col1, col2, col3 = st.columns([2, 1, 2])
@@ -74,13 +90,6 @@ def main():
         div.stButton > button {
             font-size: 24px;
             height: 60px;
-        }
-        @media (max-width: 768px) {
-            div.stButton > button {
-                font-size: 20px;
-                height: 50px;
-                width: 100% !important;
-            }
         }
         </style>
         """
@@ -97,6 +106,7 @@ def main():
                 st.session_state.timer_running = True
                 st.rerun()
         else:
+            # 在检测或清洗过程中显示禁用的按钮
             st.button("进行中...", disabled=True, key="disabled_button", use_container_width=True)
     
     # 计时器逻辑
@@ -114,11 +124,9 @@ def main():
                 time_display.markdown(f"<div style='text-align: center; font-size: 24px;'>剩余时间: {int(total_sample_time - elapsed)}秒</div>", unsafe_allow_html=True)
                 time.sleep(0.1)
             
-            # 播放提示音
-            audio_placeholder.markdown(get_audio_html(st.session_state.audio_bytes1), unsafe_allow_html=True)
-            time.sleep(0.5)  # 给音频播放一些时间
-            
-            # 设置状态
+            # 气袋检测完成，播放提示音
+            st.session_state.play_sound = True
+            st.session_state.sound_type = 'phase1'
             st.session_state.phase = "等待清洗"
             st.session_state.timer_running = False
             st.rerun()
@@ -136,11 +144,11 @@ def main():
                 time_display.markdown(f"<div style='text-align: center; font-size: 24px;'>剩余时间: {int(total_zero_time - elapsed)}秒</div>", unsafe_allow_html=True)
                 time.sleep(0.1)
             
-            # 播放提示音
-            audio_placeholder.markdown(get_audio_html(st.session_state.audio_bytes2), unsafe_allow_html=True)
-            time.sleep(0.5)  # 给音频播放一些时间
+            # 清洗完成，播放提示音
+            st.session_state.play_sound = True
+            st.session_state.sound_type = 'phase2'
             
-            # 重置状态
+            # 重置所有状态
             st.session_state.timer_running = False
             st.session_state.current_state = "就绪"
             st.session_state.phase = "待开始"
