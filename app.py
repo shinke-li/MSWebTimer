@@ -15,30 +15,6 @@ def get_audio_html(sound_type):
         </script>
     '''
 
-def get_init_audio_html():
-    # 初始化音频系统的HTML，包含一个简短的无声音频
-    return '''
-        <div id="initAudioDiv">
-            <button onclick="initAudio()" style="padding: 10px; background-color: #ff4b4b; color: white; border: none; border-radius: 5px;">
-                点击初始化音频系统
-            </button>
-            <audio id="initAudio" style="display:none;">
-                <source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA" type="audio/wav">
-            </audio>
-            <script>
-                function initAudio() {
-                    var audio = document.getElementById('initAudio');
-                    audio.play().then(() => {
-                        document.getElementById('initAudioDiv').style.display = 'none';
-                        window.parent.postMessage({type: 'audioInitialized'}, '*');
-                    }).catch(e => {
-                        console.error('Audio init failed:', e);
-                    });
-                }
-            </script>
-        </div>
-    '''
-
 def main():
     st.set_page_config(layout="wide")
 
@@ -70,29 +46,20 @@ def main():
 
     st.markdown("<h1 style='text-align: center;'>气体检测计时器</h1>", unsafe_allow_html=True)
 
-    # 显示音频初始化按钮
+    # 使用Streamlit原生按钮进行音频初始化
     if not st.session_state.audio_initialized:
-        st.markdown(get_init_audio_html(), unsafe_allow_html=True)
-        
-        # 添加JavaScript监听器来接收初始化完成的消息
-        st.markdown('''
-            <script>
-                window.addEventListener('message', function(e) {
-                    if (e.data.type === 'audioInitialized') {
-                        // 通过修改URL参数来触发页面刷新
-                        var url = new URL(window.location.href);
-                        url.searchParams.set('audio_init', 'true');
-                        window.location.href = url.toString();
-                    }
-                });
-            </script>
-        ''', unsafe_allow_html=True)
-
-        # 检查URL参数来更新初始化状态
-        if st.query_params.get('audio_init') == 'true':
-            st.session_state.audio_initialized = True
-            st.query_params.clear()  # 清除URL参数
-            st.rerun()
+        st.markdown("<h3 style='text-align: center; color: #ff4b4b;'>请先初始化音频系统</h3>", unsafe_allow_html=True)
+        init_col1, init_col2, init_col3 = st.columns([2, 1, 2])
+        with init_col2:
+            if st.button("初始化音频系统", key="init_audio", use_container_width=True, type="primary"):
+                # 播放一个短暂的无声音频来初始化系统
+                st.markdown('''
+                    <audio id="initAudio" autoplay style="display:none;">
+                        <source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA" type="audio/wav">
+                    </audio>
+                ''', unsafe_allow_html=True)
+                st.session_state.audio_initialized = True
+                st.rerun()
 
     # 音频播放器容器
     audio_placeholder = st.empty()
