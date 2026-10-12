@@ -11,6 +11,7 @@
   --S:#1d1d1f; --H:#d62839; --D:#e07a10; --C:#1f8a3a;
 }
 *{box-sizing:border-box}
+:root{color-scheme:dark}
 html,body{margin:0;background:var(--felt);color:var(--text);font:14px/1.45 -apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif}
 button{font:inherit;cursor:pointer;border:1px solid var(--line);background:#1b5a45;color:var(--text);padding:6px 12px;border-radius:8px}
 button:hover:not(:disabled){background:#23735a}
@@ -23,7 +24,7 @@ header{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var
 header h1{font-size:18px;margin:0 auto 0 0;letter-spacing:1px}
 header h1 span{color:var(--gold)}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
-#setup{max-width:860px;margin:20px auto;padding:20px}
+#setup{width:min(860px,calc(100% - 32px));margin:20px auto;padding:20px}
 #setup h2{margin:0 0 12px;font-size:17px}
 #setup h3{margin:18px 0 8px;font-size:15px;color:var(--gold)}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0}
@@ -33,7 +34,7 @@ header h1 span{color:var(--gold)}
 .hint{color:var(--muted);font-size:12px}
 details summary{cursor:pointer;color:var(--muted)}
 
-#game{display:grid;grid-template-columns:1fr 330px;gap:12px;padding:12px;max-width:1500px;margin:0 auto}
+#game{display:grid;grid-template-columns:1fr 330px;gap:12px;padding:12px 16px;max-width:1500px;margin:0 auto}
 @media (max-width:980px){#game{grid-template-columns:1fr}}
 #table{display:flex;flex-direction:column;gap:12px;min-width:0}
 #opponents{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
@@ -42,6 +43,8 @@ details summary{cursor:pointer;color:var(--muted)}
 .seat .nm{font-weight:600}
 .seat .tag{font-size:11px;padding:1px 6px;border-radius:10px;background:#245c49;color:#cfe;margin-left:4px}
 .seat .tag.llm{background:#5b3d8a}
+.seat .tag.claude{background:#8a5a2b}
+.note{background:#082419;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--muted);font-size:12px}
 .seat .tag.aggressive{background:#8a3d3d}
 .seat .tag.cautious{background:#3d5d8a}
 .seat .stats{display:flex;gap:10px;color:var(--muted);font-size:12px;margin-top:3px}
@@ -135,7 +138,13 @@ dialog pre{background:#082419;padding:10px;border-radius:8px;overflow:auto;font-
   <div id="oppRows"></div>
   <p class="hint">理性型：按概率估算期望墩数并四舍五入叫牌，出牌力求“刚好叫中”。激进型：放大期望、偏高叫牌，需要墩时优先上大牌。保守型：偏低叫牌，只在胜率很高时才争墩。LLM：通过 OpenRouter 调用大模型决策，失败时自动由理性型代打。</p>
 
+  <h3>Claude（页面内置）</h3>
+  <div class="row"><label>档位</label>
+    <select id="claudeTier"><option value="quick" selected>quick（快，适合打牌）</option><option value="default">default（更会想，较慢）</option><option value="complex">complex（最强，很慢）</option></select>
+    <span id="claudeState" class="hint">检测中…</span></div>
+
   <h3>LLM（OpenRouter）设置</h3>
+  <p class="note" id="orNote" hidden>在 claude.ai 页面里，浏览器会拦截对 OpenRouter 的请求，OpenRouter 座位会由理性型 bot 代打。想用 OpenRouter，请把这个 HTML 下载到本地用浏览器打开。</p>
   <div class="row"><label>API Key</label><input id="apiKey" type="password" placeholder="sk-or-v1-..." style="flex:1;min-width:240px">
     <label><input type="checkbox" id="saveKey"> 记住（仅保存在本机浏览器）</label></div>
   <div class="row"><label>默认模型</label><input id="model" list="modelList" style="flex:1;min-width:240px" value="openai/gpt-4o-mini">
@@ -204,8 +213,16 @@ dialog pre{background:#082419;padding:10px;border-radius:8px;overflow:auto;font-
 定王：{"trump": "S", "reason": "黑桃最多"}</pre>
   <p>牌的代码：花色字母 <code>S/H/D/C</code> + 点数 <code>2–14</code>（11=J 12=Q 13=K 14=A），巫师 <code>WIZ1–4</code>，小丑 <code>JES1–4</code>。<br>
   回复不合法时会把错误原因发回给模型重试一次；仍失败或网络出错，则本次由理性型 bot 代打，游戏不会卡住。模型的 <code>reason</code> 会显示在座位和日志里。</p>
+  <p><b>Claude 座位</b>：在 claude.ai 页面里打开时可用，用的是查看者自己的 Claude 账号（第一次会弹窗征求同意），不需要 Key。发给它的内容和上面一样：规则 + 局面 + 输出格式。</p>
   <p class="hint">API Key 只在你的浏览器里直接发给接口地址，不经过其它服务器；勾选“记住”才会存到 localStorage。</p>
   <div style="text-align:right"><button class="primary" onclick="document.getElementById('rulesDlg').close()">知道了</button></div>
+</dialog>
+
+<dialog id="confirmDlg">
+  <p id="confirmText" style="font-size:15px"></p>
+  <div style="text-align:right;display:flex;gap:8px;justify-content:flex-end">
+    <button id="confirmNo">取消</button><button class="primary" id="confirmYes">确定</button>
+  </div>
 </dialog>
 
 <dialog id="finalDlg">
@@ -440,7 +457,8 @@ const BOT_PROFILES = {
   aggressive: {label:'激进型', scale:1.25, bias: 0.35, thr:0.40,   greedy:true },
   cautious:   {label:'保守型', scale:0.85, bias:-0.15, tilt:-0.25, greedy:false},
 };
-const TYPE_LABEL = {human:'玩家', rational:'理性型', aggressive:'激进型', cautious:'保守型', llm:'LLM'};
+const TYPE_LABEL = {human:'玩家', rational:'理性型', aggressive:'激进型', cautious:'保守型', llm:'LLM', claude:'Claude'};
+const isAI = t => t === 'llm' || t === 'claude';
 
 function forbiddenBid(pi){
   if (!G.cfg.hook || pi !== G.dealer) return null;
@@ -506,6 +524,9 @@ function botPlay(pi, profKey){
 /* =====================================================================
  * LLM（OpenRouter / OpenAI 兼容）
  * ===================================================================== */
+/** 可选：预置的 OpenRouter Key（留空则需要在设置里填写）。注意：写在这里，任何能看到这个文件的人都能看到它。 */
+const DEFAULT_API_KEY = '';
+
 const DEFAULT_SYSTEM_PROMPT = `你是卡牌游戏「巫师牌 (Wizard)」中的一名玩家，目标是让自己的总分最高。
 
 【牌组】60 张：4 种花色 S(黑桃) H(红心) D(方块) C(梅花)，每种 13 张，点数 2–14（11=J, 12=Q, 13=K, 14=A）；另有 4 张巫师(WIZ1–WIZ4) 和 4 张小丑(JES1–JES4)。
@@ -560,6 +581,15 @@ async function callLLM(messages, model, llm){
     if (e.name === 'AbortError') throw new Error('请求超时');
     throw e;
   } finally { clearTimeout(timer); }
+}
+/** claude.ai 页面内置的 Claude（sample 能力）：没有 system 角色，规则并入第一条 user 消息 */
+let SAMPLE = null;
+async function callClaude(messages){
+  const turns = messages.filter(m => m.role !== 'system').map(m => ({...m}));
+  const sys = messages.find(m => m.role === 'system');
+  if (sys) turns[0].content = sys.content + '\n\n' + turns[0].content;
+  const {text} = await SAMPLE(turns, {modelTier: G.cfg.claudeTier || 'quick'});
+  return text;
 }
 function extractJSON(text){
   if (!text) return null;
@@ -626,10 +656,11 @@ async function askLLM(pi, kind, tok){
   const p = G.players[pi];
   const {prompt, validate} = buildAsk(pi, kind);
   const messages = [{role:'system', content:G.cfg.llm.system}, {role:'user', content:prompt}];
+  if (p.type === 'claude' && (!SAMPLE || G.claudeOff)) return null;   // 不可用：直接由 bot 代打（不刷屏）
   p.thinking = true; render();
   try{
     for (let attempt = 0; attempt < 2; attempt++){
-      const text = await callLLM(messages, p.model || G.cfg.llm.model, G.cfg.llm);
+      const text = p.type === 'claude' ? await callClaude(messages) : await callLLM(messages, p.model || G.cfg.llm.model, G.cfg.llm);
       check(tok);
       const obj = extractJSON(text);
       const r = obj ? validate(obj) : {err:'没有找到 JSON'};
@@ -643,7 +674,12 @@ async function askLLM(pi, kind, tok){
     }
   } catch (e){
     if (e instanceof Abort) throw e;
-    log(`${p.name} 调用失败：${e.message}`, 'err');
+    if (p.type === 'claude' && ['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed'].includes(e.code)){
+      G.claudeOff = true;
+      log(`Claude 不可用（${e.code}），本局 Claude 座位改由理性型 bot 代打`, 'err');
+      return null;
+    }
+    log(`${p.name} 调用失败：${e.code ? e.code + ' ' : ''}${e.message || ''}`, 'err');
   } finally { p.thinking = false; }
   check(tok);
   log(`${p.name} 本次由理性型 bot 代打`, 'err');
@@ -664,7 +700,7 @@ const waitHuman = (kind, tok) => new Promise(res => { human = {kind, resolve: v 
 function newGame(cfg){
   RUN++;
   const tok = RUN;
-  const names = {rational:['艾伦','诺拉','奥斯卡','伊娃','林恩'], aggressive:['贝拉','雷克斯','维克','佐伊','马克斯'], cautious:['卡尔','米拉','西奥','露西','汉斯'], llm:['德尔塔','欧米伽','西格玛','阿尔法','伽马']};
+  const names = {rational:['艾伦','诺拉','奥斯卡','伊娃','林恩'], aggressive:['贝拉','雷克斯','维克','佐伊','马克斯'], cautious:['卡尔','米拉','西奥','露西','汉斯'], llm:['德尔塔','欧米伽','西格玛','阿尔法','伽马'], claude:['克劳德','诗人','学者','旅人','隐士']};
   const used = {};
   const players = [{name:'你', type:'human'}].concat(cfg.opps.map(o => {
     used[o.type] = (used[o.type] || 0);
@@ -778,13 +814,13 @@ async function playRound(tok){
 async function decide(pi, kind, tok){
   const p = G.players[pi];
   if (p.type === 'human') return waitHuman(kind, tok);
-  if (p.type === 'llm'){
+  if (isAI(p.type)){
     const v = await askLLM(pi, kind, tok);
     render();
     if (v != null) return v;
   }
   await sleep(0); check(tok);   // 让界面先刷新
-  const prof = p.type === 'llm' ? 'rational' : p.type;
+  const prof = isAI(p.type) ? 'rational' : p.type;
   if (kind === 'trump') return botTrump(pi);
   if (kind === 'bid') return botBid(pi, prof);
   return botPlay(pi, prof);
@@ -826,7 +862,7 @@ function render(){
     const d = document.createElement('div');
     d.className = 'seat' + (G.turn === i ? ' turn' : '');
     d.innerHTML = `${G.dealer === i ? '<div class="dealer" title="庄家">D</div>' : ''}
-      <div class="nm ${p.thinking ? 'thinking' : ''}">${esc(p.name)}<span class="tag ${p.type}">${TYPE_LABEL[p.type]}${p.type === 'llm' ? ' · ' + esc((p.model || G.cfg.llm.model).split('/').pop()) : ''}</span></div>
+      <div class="nm ${p.thinking ? 'thinking' : ''}">${esc(p.name)}<span class="tag ${p.type}">${TYPE_LABEL[p.type]}${p.type === 'llm' ? ' · ' + esc((p.model || G.cfg.llm.model).split('/').pop()) : p.type === 'claude' ? ' · ' + G.cfg.claudeTier : ''}</span></div>
       <div class="stats"><span>${bidWonHtml(p)}</span><span>总分 <b>${p.score}</b></span></div>
       <div class="backs">${'<i></i>'.repeat(p.hand.length)}</div>
       ${p.reason ? `<div class="reason">💭 ${esc(p.reason)}</div>` : ''}`;
@@ -948,7 +984,7 @@ const LS = {
   set(k, v){ try { localStorage.setItem('wizard.' + k, JSON.stringify(v)); } catch {} },
   del(k){ try { localStorage.removeItem('wizard.' + k); } catch {} },
 };
-const DEFAULT_OPPS = ['rational','aggressive','cautious','rational','llm'];
+const DEFAULT_OPPS = ['rational','aggressive','cautious','rational','rational'];
 function renderOppRows(){
   const n = +$('oppCount').value, saved = LS.get('opps', []);
   const prev = [...document.querySelectorAll('.opp-row')].map(r => ({type:r.querySelector('select').value, model:r.querySelector('input').value}));
@@ -957,7 +993,7 @@ function renderOppRows(){
     const o = prev[i] || saved[i] || {type:DEFAULT_OPPS[i], model:''};
     const row = document.createElement('div'); row.className = 'opp-row';
     row.innerHTML = `<span>对手 ${i + 1}</span>
-      <select>${['rational','aggressive','cautious','llm'].map(t => `<option value="${t}" ${o.type === t ? 'selected' : ''}>${TYPE_LABEL[t]}${t === 'llm' ? '（OpenRouter）' : ''}</option>`).join('')}</select>
+      <select>${['rational','aggressive','cautious','claude','llm'].map(t => `<option value="${t}" ${o.type === t ? 'selected' : ''}>${TYPE_LABEL[t]}${t === 'llm' ? '（OpenRouter）' : t === 'claude' ? '（页面内置）' : ''}</option>`).join('')}</select>
       <input list="modelList" placeholder="模型（留空 = 默认模型）" value="${esc(o.model || '')}">`;
     const sel = row.querySelector('select'), inp = row.querySelector('input');
     const upd = () => inp.style.visibility = sel.value === 'llm' ? 'visible' : 'hidden';
@@ -969,14 +1005,14 @@ function readCfg(){
   const opps = [...document.querySelectorAll('.opp-row')].map(r => ({type:r.querySelector('select').value, model:r.querySelector('input').value.trim()}));
   return {
     opps, rounds:$('roundMode').value, hook:$('hookRule').checked, speed:+$('speed').value, autoNext:$('autoNext').checked,
-    hint: G?.cfg?.hint || false,
+    hint: G?.cfg?.hint || false, claudeTier:$('claudeTier').value,
     llm:{key:$('apiKey').value.trim(), model:$('model').value.trim() || 'openai/gpt-4o-mini', endpoint:$('endpoint').value.trim(),
          temperature:+$('temperature').value, timeout:+$('timeout').value || 60, system:$('sysPrompt').value || DEFAULT_SYSTEM_PROMPT},
   };
 }
 function saveCfg(cfg){
   LS.set('opps', cfg.opps);
-  LS.set('opts', {oppCount:cfg.opps.length, rounds:cfg.rounds, hook:cfg.hook, speed:cfg.speed, autoNext:cfg.autoNext,
+  LS.set('opts', {oppCount:cfg.opps.length, rounds:cfg.rounds, claudeTier:cfg.claudeTier, hook:cfg.hook, speed:cfg.speed, autoNext:cfg.autoNext,
                   model:cfg.llm.model, endpoint:cfg.llm.endpoint, temperature:cfg.llm.temperature, timeout:cfg.llm.timeout,
                   system: cfg.llm.system === DEFAULT_SYSTEM_PROMPT ? null : cfg.llm.system});
   if ($('saveKey').checked) LS.set('key', cfg.llm.key); else LS.del('key');
@@ -985,6 +1021,7 @@ function loadCfg(){
   const o = LS.get('opts', {});
   if (o.oppCount) $('oppCount').value = o.oppCount;
   if (o.rounds) $('roundMode').value = o.rounds;
+  if (o.claudeTier) $('claudeTier').value = o.claudeTier;
   $('hookRule').checked = !!o.hook;
   if (o.speed) $('speed').value = o.speed;
   $('autoNext').checked = !!o.autoNext;
@@ -995,6 +1032,7 @@ function loadCfg(){
   $('sysPrompt').value = o.system || DEFAULT_SYSTEM_PROMPT;
   const key = LS.get('key', null);
   if (key){ $('apiKey').value = key; $('saveKey').checked = true; }
+  else if (DEFAULT_API_KEY) $('apiKey').value = DEFAULT_API_KEY;
   $('speedVal').textContent = $('speed').value + 'ms';
 }
 
@@ -1002,17 +1040,29 @@ $('oppCount').onchange = renderOppRows;
 $('speed').oninput = () => $('speedVal').textContent = $('speed').value + 'ms';
 $('btnResetPrompt').onclick = () => $('sysPrompt').value = DEFAULT_SYSTEM_PROMPT;
 $('btnRules').onclick = () => $('rulesDlg').showModal();
-$('btnSetup').onclick = () => {
-  if (G && G.phase !== 'over' && !$('game').hidden && !confirm('放弃当前这局，回到设置？')) return;
+function askConfirm(text){
+  return new Promise(res => {
+    const d = $('confirmDlg');
+    $('confirmText').textContent = text;
+    const done = v => { d.close(); res(v); };
+    $('confirmYes').onclick = () => done(true);
+    $('confirmNo').onclick = () => done(false);
+    d.oncancel = () => res(false);
+    d.showModal();
+  });
+}
+$('btnSetup').onclick = async () => {
+  if (G && G.phase !== 'over' && !$('game').hidden && !(await askConfirm('放弃当前这局，回到设置？'))) return;
   RUN++; human = null;
   $('setup').hidden = false; $('game').hidden = true;
 };
 $('btnAgain').onclick = () => { $('finalDlg').close(); newGame(G.cfg); };
 $('btnStart').onclick = () => {
   const cfg = readCfg();
-  if (cfg.opps.some(o => o.type === 'llm') && !cfg.llm.key && !confirm('有 LLM 对手但没填 API Key，它们会全程由理性型 bot 代打。继续吗？')) return;
   saveCfg(cfg);
   newGame(cfg);
+  if (cfg.opps.some(o => o.type === 'llm') && !cfg.llm.key) log('没有填写 OpenRouter API Key，LLM 座位由理性型 bot 代打。', 'err');
+  if (cfg.opps.some(o => o.type === 'claude') && !SAMPLE) log('当前页面用不了内置 Claude，Claude 座位由理性型 bot 代打。', 'err');
 };
 $('btnTest').onclick = async () => {
   const cfg = readCfg(); $('testRes').textContent = '请求中…';
@@ -1023,6 +1073,14 @@ $('btnTest').onclick = async () => {
 };
 loadCfg();
 renderOppRows();
+// 在 claude.ai 页面中：检测内置 Claude；直接本地打开时没有 window.claude
+(async () => {
+  const inViewer = !!window.claude;
+  $('orNote').hidden = !inViewer;
+  try { SAMPLE = inViewer ? await window.claude.use('sample') : null; } catch { SAMPLE = null; }
+  $('claudeState').textContent = SAMPLE ? '✅ 可用（使用你自己的 Claude 账号，首次调用会询问是否允许）'
+    : '本地打开时不可用；在 claude.ai 页面里打开才能用';
+})();
 </script>
 </body>
 </html>
