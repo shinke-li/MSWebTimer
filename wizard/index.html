@@ -49,10 +49,8 @@ details summary{cursor:pointer;color:var(--muted)}
 .seat .tag.cautious{background:#3d5d8a}
 .seat .stats{display:flex;gap:10px;color:var(--muted);font-size:12px;margin-top:3px}
 .seat .stats b{color:var(--text)}
-.seat .backs{display:flex;margin-top:6px;height:22px}
-.seat .backs i{width:12px;height:20px;border-radius:3px;background:repeating-linear-gradient(45deg,#3b2a6b,#3b2a6b 3px,#5a43a0 3px,#5a43a0 6px);border:1px solid #ccc;margin-right:-4px}
 .seat .reason{font-size:11px;color:#d9c8ff;margin-top:4px;max-width:220px}
-.dealer{position:absolute;top:-9px;right:-9px;background:var(--gold);color:#2a2000;border-radius:50%;width:22px;height:22px;font-size:12px;display:grid;place-items:center;font-weight:700}
+.chip{font-size:11px;padding:0 6px;border-radius:10px;background:var(--gold);color:#2a2000;font-weight:700;margin-left:4px}
 .thinking::after{content:" 思考中…";color:var(--gold);font-size:12px;animation:blink 1s infinite}
 @keyframes blink{50%{opacity:.3}}
 .ok{color:var(--accent)} .no{color:var(--bad)}
@@ -61,10 +59,22 @@ details summary{cursor:pointer;color:var(--muted)}
 @media (max-width:600px){#center{grid-template-columns:1fr}}
 #trumpBox{text-align:center;color:var(--muted);font-size:12px}
 #trumpBox .big{font-size:15px;color:var(--text);margin-top:4px}
-#trick{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;min-height:130px;align-items:flex-end}
-.played{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:var(--muted)}
-.played.win .card{box-shadow:0 0 0 3px var(--gold),0 0 18px var(--gold)}
-.played.win span{color:var(--gold);font-weight:600}
+#trick{min-width:0}
+.strip-title{text-align:center;color:var(--muted);font-size:12px;margin-bottom:8px;letter-spacing:.5px}
+.strip{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;align-items:flex-start}
+.slot{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:var(--muted);padding:6px 6px 4px;border-radius:10px;border:2px solid transparent;min-width:76px}
+.slot .ord{width:20px;height:20px;border-radius:50%;background:#1f5a46;color:var(--text);display:grid;place-items:center;font-size:11px;font-weight:700}
+.slot .who{max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slot.now{border-color:var(--gold);background:#f4c95d14}
+.slot.now .ord{background:var(--gold);color:#2a2000}
+.slot.now .who{color:var(--gold);font-weight:600}
+.slot.win .card{box-shadow:0 0 0 3px var(--gold),0 0 18px var(--gold)}
+.slot.win .who{color:var(--gold);font-weight:600}
+.slot .empty{width:62px;height:90px;border-radius:8px;border:2px dashed #2f6f58}
+.slot .bidv{width:62px;height:90px;border-radius:8px;background:#082419;border:1px solid var(--line);display:grid;place-items:center;font-size:30px;font-weight:700;color:var(--text)}
+.slot .bidv.wait{color:#2f6f58;font-size:20px}
+.slot .sub{font-size:11px}
+.arrow{align-self:center;color:#2f6f58;font-size:14px;margin-top:-18px}
 #status{grid-column:1/-1;text-align:center;min-height:22px;color:var(--gold)}
 
 #me{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:10px 12px}
@@ -125,30 +135,36 @@ dialog pre{background:#082419;padding:10px;border-radius:8px;overflow:auto;font-
     <select id="roundMode"><option value="full">完整（60 ÷ 人数）</option><option value="10">最多 10 轮</option><option value="5">最多 5 轮（快速）</option></select>
   </div>
   <div class="row">
+    <label>比大小</label>
+    <select id="ruleMode"><option value="rank" selected>按点数：非王牌只比点数，不看花色</option><option value="suit">标准：只有首家花色的牌能赢</option></select>
+  </div>
+  <div class="row">
     <label><input type="checkbox" id="hookRule"> 钩子规则（庄家最后叫牌，所有人叫牌总和不能等于本轮牌数）</label>
   </div>
   <div class="row">
     <label>Bot 出牌速度</label>
     <input type="range" id="speed" min="150" max="2000" step="50" value="700">
     <span id="speedVal" class="hint">700ms</span>
+    <label><input type="checkbox" id="aiHints"> 把概率估算发给 AI（更强，但不再是 AI 独立判断）</label>
     <label><input type="checkbox" id="autoNext"> 自动进入下一轮</label>
   </div>
 
   <h3>对手</h3>
   <div id="oppRows"></div>
-  <p class="hint">理性型：按概率估算期望墩数并四舍五入叫牌，出牌力求“刚好叫中”。激进型：放大期望、偏高叫牌，需要墩时优先上大牌。保守型：偏低叫牌，只在胜率很高时才争墩。LLM：通过 OpenRouter 调用大模型决策，失败时自动由理性型代打。</p>
+  <p class="hint">理性型：按概率叫牌，力求刚好叫中。激进型：偏高叫牌、先上大牌。保守型：偏低叫牌、少争墩。LLM / Claude 调用失败时由理性型代打。</p>
 
   <h3>Claude（页面内置）</h3>
   <div class="row"><label>档位</label>
     <select id="claudeTier"><option value="quick" selected>quick（快，适合打牌）</option><option value="default">default（更会想，较慢）</option><option value="complex">complex（最强，很慢）</option></select>
     <span id="claudeState" class="hint">检测中…</span></div>
 
-  <h3>LLM（OpenRouter）设置</h3>
-  <p class="note" id="orNote" hidden>在 claude.ai 页面里，浏览器会拦截对 OpenRouter 的请求，OpenRouter 座位会由理性型 bot 代打。想用 OpenRouter，请把这个 HTML 下载到本地用浏览器打开。</p>
+  <h3>LLM（OpenRouter，默认 Jev）设置</h3>
+  <p class="note" id="orNote" hidden>在 claude.ai 页面里，浏览器会拦截对 OpenRouter 的请求（Jev 也一样），LLM 座位会由理性型 bot 代打。想用 Jev / OpenRouter，请用仓库里的 wizard/index.html 在本地浏览器打开。</p>
   <div class="row"><label>API Key</label><input id="apiKey" type="password" placeholder="sk-or-v1-..." style="flex:1;min-width:240px">
     <label><input type="checkbox" id="saveKey"> 记住（仅保存在本机浏览器）</label></div>
-  <div class="row"><label>默认模型</label><input id="model" list="modelList" style="flex:1;min-width:240px" value="openai/gpt-4o-mini">
+  <div class="row"><label>默认模型</label><input id="model" list="modelList" style="flex:1;min-width:240px" value="typesafe/jev-1.13">
     <datalist id="modelList">
+      <option value="typesafe/jev-1.13"><option value="~typesafe/jev-latest">
       <option value="openai/gpt-4o-mini"><option value="openai/gpt-4.1"><option value="anthropic/claude-sonnet-4.5">
       <option value="google/gemini-2.5-flash"><option value="deepseek/deepseek-chat"><option value="qwen/qwen3-235b-a22b">
       <option value="meta-llama/llama-3.3-70b-instruct">
@@ -156,7 +172,9 @@ dialog pre{background:#082419;padding:10px;border-radius:8px;overflow:auto;font-
     <button id="btnTest">测试连接</button><span id="testRes" class="hint"></span></div>
   <details>
     <summary>高级：接口地址 / 温度 / 超时 / 系统提示词（规则）</summary>
-    <div class="row"><label>接口地址</label><input id="endpoint" style="flex:1;min-width:300px" value="https://openrouter.ai/api/v1/chat/completions"></div>
+    <div class="row"><label>对话模型接口</label><input id="endpoint" style="flex:1;min-width:300px" value="https://openrouter.ai/api/v1/chat/completions"></div>
+    <div class="row"><label>Jev 决策接口</label><input id="jevEndpoint" style="flex:1;min-width:300px" value="https://openrouter.ai/api/alpha/decisions"></div>
+    <p class="hint">模型名里带 <code>jev</code>（如 typesafe/jev-1.13）时走 Jev 的决策接口：把局面作为 state、把“叫几墩 / 出哪张牌”作为 choice 问题发过去，直接拿回选项和置信度；其它模型走对话接口。</p>
     <div class="row"><label>temperature</label><input id="temperature" type="number" min="0" max="2" step="0.1" value="0.3" style="width:80px">
       <label>超时(秒)</label><input id="timeout" type="number" min="5" max="300" value="60" style="width:80px"></div>
     <p class="hint">任何 OpenAI 兼容的 <code>/chat/completions</code> 接口都可以（OpenRouter、本地 Ollama 的 /v1 等）。下面是发给模型的系统提示词，可自由修改：</p>
@@ -194,11 +212,26 @@ dialog pre{background:#082419;padding:10px;border-radius:8px;overflow:auto;font-
   <p><b>发牌</b>：第 n 轮每人发 n 张；共 60 ÷ 人数 轮。剩余牌堆翻开顶牌决定王牌：数字牌 → 该花色为王牌；小丑 → 本轮无王牌；巫师 → 庄家指定王牌；牌发完（最后一轮）则无王牌。</p>
   <p><b>叫牌</b>：从庄家下家起，每人报出本轮自己会赢几墩。（可选“钩子规则”：庄家最后叫，总和不能等于本轮牌数。）</p>
   <p><b>出牌</b>：庄家下家先出。必须跟首家花色（如有）；巫师和小丑任何时候都能出。首张是巫师 → 其余人随意出；首张是小丑 → 第一张出现的数字牌决定花色。</p>
-  <p><b>比大小</b>：第一张巫师赢 → 否则最大王牌赢 → 否则首花色最大的牌赢；全是小丑时第一张小丑赢。赢家领出下一墩。</p>
+  <p><b>比大小</b>：第一张巫师赢 → 否则最大王牌赢 → 否则比数字牌；全是小丑时第一张小丑赢。赢家领出下一墩。<br>
+  数字牌怎么比，设置里有两种：<b>按点数</b>（默认，非王牌不看花色只比点数，同点数先出者赢）；<b>标准</b>（官方规则，只有首家花色的牌能赢，垫的其它花色再大也不算）。两种规则下都必须跟首家花色。</p>
   <p><b>计分</b>：叫中 = 20 + 10 × 墩数；没叫中 = −10 × |相差墩数|。总分最高者获胜。</p>
 
   <h2>LLM 接口说明</h2>
-  <p>每当 LLM 玩家需要决策时，页面会向 <code>POST {接口地址}</code> 发送 OpenAI 兼容请求：</p>
+  <h3>Jev（默认，typesafe/jev-1.13）</h3>
+  <p>Jev 是决策模型，不生成文字。每次决策页面向 <code>POST https://openrouter.ai/api/alpha/decisions</code> 发送：</p>
+<pre>{
+  "model": "typesafe/jev-1.13",
+  "state": { "rules": "...", "trump": "红心", "your_hand": [...], "players": [...],
+             "current_trick": [...], "tricks_still_needed": 1, ... },
+  "questions": {
+    "move": { "type": "choice",
+              "instructions": "轮到你出牌，从合法的牌中选一张。你还需要再赢 1 墩。",
+              "criteria": { "H12": "红心Q（王牌）", "S3": "黑桃3", "JES1": "小丑：…" } }
+  }
+}</pre>
+  <p>返回 <code>answers.move.choice</code>（选中的牌代码 / 叫牌数 / 花色）和 <code>confidence</code>，置信度会显示在座位上。叫牌时 criteria 是 <code>"0"…"n"</code>，定王时是 <code>S/H/D/C</code>。</p>
+  <h3>其它对话模型</h3>
+  <p>模型名不含 jev 时，页面向 <code>POST {对话模型接口}</code> 发送 OpenAI 兼容请求：</p>
 <pre>{
   "model": "openai/gpt-4o-mini",
   "temperature": 0.3,
@@ -297,6 +330,13 @@ function legalCards(hand, trickCards){
   if (!ls || !hand.some(c => c.t === 'num' && c.s === ls)) return hand.slice();
   return hand.filter(c => c.t !== 'num' || c.s === ls);
 }
+/** 比大小规则：true = 非王牌只比点数（同点数先出者赢）；false = 标准规则（只有首花色能赢） */
+let RANK_RULE = true;
+function ruleText(){
+  return RANK_RULE
+    ? '第一张巫师获胜；没有巫师时，最大的王牌获胜；没有王牌时，所有数字牌只比点数（不看花色），点数最大者获胜，点数相同则先出者获胜；全部是小丑时第一张小丑获胜。'
+    : '第一张巫师获胜；没有巫师时，最大的王牌获胜；没有王牌时，首张数字牌花色中点数最大者获胜（其它花色的牌不能赢）；全部是小丑时第一张小丑获胜。';
+}
 /** 返回赢家在 cards 中的下标 */
 function trickWinner(cards, trump){
   const w = cards.findIndex(c => c.t === 'wiz');
@@ -308,7 +348,7 @@ function trickWinner(cards, trump){
     const b = cards[best];
     const cT = c.s === trump, bT = b.s === trump;
     if (cT && !bT) best = i;
-    else if (c.s === b.s && c.r > b.r) best = i;
+    else if (cT === bT && (RANK_RULE || c.s === b.s) && c.r > b.r) best = i;
   });
   return best < 0 ? 0 : best;   // 全是小丑：第一张赢
 }
@@ -415,7 +455,7 @@ function rawLeadProbs(hand, trump, unseen, holders, tryPs, sims){
 const CALIB = {};
 const calibrate = (p, k) => 1 - Math.pow(1 - Math.min(p, 0.999), k);
 function calibK(r, n){
-  const key = r + '/' + n;
+  const key = r + '/' + n + '/' + RANK_RULE;
   if (CALIB[key]) return CALIB[key];
   const raws = []; let wiz = 0;
   const H = 50;
@@ -538,7 +578,7 @@ const DEFAULT_SYSTEM_PROMPT = `你是卡牌游戏「巫师牌 (Wizard)」中的�
 3. 出牌：每墩由上一墩赢家领出（第一墩由庄家下家领出）。
    - 必须跟本墩首张数字牌的花色（如果手里有）；巫师和小丑任何时候都可以出。
    - 首张是巫师：其余玩家可随意出牌。首张是小丑：第一张出现的数字牌决定需跟的花色。
-4. 胜负：本墩第一张巫师获胜；没有巫师时，最大的王牌获胜；没有王牌时，首花色中点数最大的牌获胜；全部是小丑时第一张小丑获胜。
+4. 胜负：{{比大小规则}}
 5. 计分：赢得墩数恰好等于叫牌 → +20 + 10×墩数；否则 → −10×|差值|。
 
 【策略提示】关键是“刚好叫中”。已经够墩时要避免再赢（垫小丑、出不能赢的牌、在别人已出巫师后甩大牌）；还缺墩时要合理使用巫师和王牌。
@@ -582,6 +622,93 @@ async function callLLM(messages, model, llm){
     throw e;
   } finally { clearTimeout(timer); }
 }
+/* ---------- Jev（TypeSafe 决策模型）：state + choice 问题 → 选项 + 概率 ---------- */
+const isJev = model => /jev/i.test(model || '') && !/jev-router/i.test(model);
+function cardDesc(c){
+  if (c.t === 'wiz') return '巫师：任何时候可出，第一张巫师必赢';
+  if (c.t === 'jes') return '小丑：任何时候可出，几乎必输';
+  return SUIT_CN[c.s] + rankTxt(c.r) + (c.s === G.trump ? '（王牌）' : '');
+}
+function jevState(pi){
+  const p = G.players[pi];
+  const leader = G.trick.length ? G.trick[0].p : pi;
+  const after = []; for (let k = G.trick.length + 1; k < G.n; k++) after.push(G.players[(leader + k) % G.n].name);
+  return {
+    game: '巫师牌 Wizard。目标：本轮赢得的墩数恰好等于自己的叫牌数。叫中得 20+10×墩数，没叫中扣 10×差值。',
+    rules: '必须跟首家数字牌的花色（有就必须跟），巫师和小丑随时可出。胜负：' + ruleText(),
+    round: `${G.round}/${G.maxRound}，每人 ${G.round} 张`,
+    trump: G.trumpPending ? '待定' : G.trump ? SUIT_CN[G.trump] : '无王牌',
+    you: p.name,
+    your_hand: p.hand.map(cardDesc),
+    your_bid: p.bid, your_tricks_won: p.won,
+    tricks_still_needed: p.bid == null ? null : p.bid - p.won,
+    players: G.players.map(q => ({name:q.name, bid:q.bid, tricks_won:q.won, cards_left:q.hand.length, total_score:q.score})),
+    current_trick: G.trick.map(x => ({player:G.players[x.p].name, card:cardDesc(x.card)})),
+    players_after_you_this_trick: after,
+    completed_tricks: G.tricksDone.map(t => ({cards:t.cards.map(x => `${G.players[x.p].name}:${cardDesc(x.card)}`), winner:G.players[t.winner].name})),
+  };
+}
+async function askJev(pi, kind, tok){
+  const p = G.players[pi], llm = G.cfg.llm;
+  const state = jevState(pi);
+  let instructions, criteria = {}, toValue;
+  if (kind === 'bid'){
+    const f = forbiddenBid(pi);
+    if (G.cfg.aiHints) state.engine_expected_tricks = +estimateTricks(pi).sum.toFixed(2);
+    instructions = `轮到你叫牌：你预计本轮能赢几墩？要尽量让最终赢墩数恰好等于叫牌数。${f != null ? `钩子规则：不能叫 ${f}。` : ''}`;
+    for (let b = 0; b <= G.round; b++) if (b !== f) criteria[String(b)] = `叫 ${b} 墩`;
+    toValue = k => criteria[k] ? +k : null;
+  } else if (kind === 'play'){
+    const legal = legalCards(p.hand, G.trick.map(x => x.card));
+    const need = p.bid - p.won;
+    instructions = `轮到你出牌，从合法的牌中选一张。你${need > 0 ? `还需要再赢 ${need} 墩` : need === 0 ? '已经够墩，应尽量不再赢' : `已经多赢了 ${-need} 墩，应尽量不再赢`}。`;
+    legal.forEach(c => { criteria[c.id] = cardDesc(c) + (G.cfg.aiHints ? `，本墩赢面约 ${Math.round(winProb(pi, c) * 100)}%` : ''); });
+    toValue = k => legal.find(c => c.id === k) || matchCard(k, legal);
+  } else {
+    instructions = '翻开的是巫师，你是庄家，请指定本轮王牌花色（通常选自己最强的花色）。';
+    for (const s of SUITS) criteria[s] = `${SUIT_CN[s]}（你有 ${p.hand.filter(c => c.t === 'num' && c.s === s).length} 张）`;
+    toValue = k => SUITS.includes(k) ? k : null;
+  }
+  const model = p.model || llm.model;
+  p.thinking = true; render();
+  try{
+    const data = await postJSON(llm.jevEndpoint, {model, state, questions:{move:{type:'choice', instructions, criteria}}}, llm);
+    check(tok);
+    const ans = (data.answers || data.data?.answers || {}).move;
+    const v = ans ? toValue(String(ans.choice)) : null;
+    if (v != null){
+      p.reason = ans.confidence != null ? `置信度 ${Math.round(ans.confidence * 100)}%` : '';
+      return v;
+    }
+    log(`${p.name}（Jev）回复里没有可用的选项：${JSON.stringify(data).slice(0, 160)}`, 'err');
+  } catch (e){
+    if (e instanceof Abort) throw e;
+    log(`${p.name}（Jev）调用失败：${e.message}`, 'err');
+  } finally { p.thinking = false; }
+  check(tok);
+  log(`${p.name} 本次由理性型 bot 代打`, 'err');
+  return null;
+}
+/** 带超时的 POST，返回 JSON；非 2xx 抛出带服务端信息的错误 */
+async function postJSON(url, body, llm){
+  if (!llm.key) throw new Error('未填写 API Key');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), llm.timeout * 1000);
+  const headers = {'Content-Type':'application/json', 'Authorization':'Bearer ' + llm.key, 'X-Title':'Wizard Card Game'};
+  if (/^https?:/.test(location.href)) headers['HTTP-Referer'] = location.origin;
+  try{
+    const res = await fetch(url, {method:'POST', signal:ctrl.signal, headers, body:JSON.stringify(body)});
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+    return data;
+  } catch (e){
+    if (e.name === 'AbortError') throw new Error('请求超时');
+    if (e instanceof TypeError) throw new Error('网络请求被拦截或无法连接（' + e.message + '）');
+    throw e;
+  } finally { clearTimeout(timer); }
+}
+
 /** claude.ai 页面内置的 Claude（sample 能力）：没有 system 角色，规则并入第一条 user 消息 */
 let SAMPLE = null;
 async function callClaude(messages){
@@ -623,7 +750,7 @@ function buildAsk(pi, kind){
   let task, validate;
   if (kind === 'bid'){
     const f = forbiddenBid(pi);
-    task = `现在轮到你叫牌。可以叫 0 到 ${G.round}${f != null ? `，但不能叫 ${f}（钩子规则）` : ''}。\n请只输出：{"bid": 整数, "reason": "理由"}`;
+    task = `现在轮到你叫牌。可以叫 0 到 ${G.round}${f != null ? `，但不能叫 ${f}（钩子规则）` : ''}。${G.cfg.aiHints ? `\n（概率引擎估算你的期望墩数约 ${estimateTricks(pi).sum.toFixed(2)}）` : ''}\n请只输出：{"bid": 整数, "reason": "理由"}`;
     validate = o => {
       const b = Number(o?.bid);
       if (!Number.isInteger(b) || b < 0 || b > G.round) return {err:`bid 必须是 0 到 ${G.round} 的整数`};
@@ -636,7 +763,7 @@ function buildAsk(pi, kind){
     const ls = leadSuit(G.trick.map(x => x.card));
     const after = []; const leader = G.trick.length ? G.trick[0].p : pi;
     for (let k = G.trick.length + 1; k < G.n; k++) after.push(G.players[(leader + k) % G.n].name);
-    task = `现在轮到你出牌。\n本墩已出：${cur}\n${ls ? `需跟花色：${ls}(${SUIT_CN[ls]})\n` : ''}在你之后还要出牌：${after.join('、') || '无（你是最后一个）'}\n你还需要赢 ${p.bid - p.won} 墩才能叫中（负数表示已超出）。\n合法的牌：${legal.map(c => c.id).join(', ')}\n请只输出：{"card": "牌代码", "reason": "理由"}`;
+    task = `现在轮到你出牌。\n本墩已出：${cur}\n${ls ? `需跟花色：${ls}(${SUIT_CN[ls]})\n` : ''}在你之后还要出牌：${after.join('、') || '无（你是最后一个）'}\n你还需要赢 ${p.bid - p.won} 墩才能叫中（负数表示已超出）。\n合法的牌：${legal.map(c => c.id + (G.cfg.aiHints ? `(赢面约${Math.round(winProb(pi, c) * 100)}%)` : '')).join(', ')}\n请只输出：{"card": "牌代码", "reason": "理由"}`;
     validate = o => {
       const c = matchCard(o?.card, legal);
       return c ? {value:c} : {err:`card 必须是以下之一：${legal.map(c => c.id).join(', ')}`};
@@ -655,7 +782,7 @@ function buildAsk(pi, kind){
 async function askLLM(pi, kind, tok){
   const p = G.players[pi];
   const {prompt, validate} = buildAsk(pi, kind);
-  const messages = [{role:'system', content:G.cfg.llm.system}, {role:'user', content:prompt}];
+  const messages = [{role:'system', content:G.cfg.llm.system.replace('{{比大小规则}}', ruleText())}, {role:'user', content:prompt}];
   if (p.type === 'claude' && (!SAMPLE || G.claudeOff)) return null;   // 不可用：直接由 bot 代打（不刷屏）
   p.thinking = true; render();
   try{
@@ -666,7 +793,6 @@ async function askLLM(pi, kind, tok){
       const r = obj ? validate(obj) : {err:'没有找到 JSON'};
       if (r.err == null){
         p.reason = String(obj.reason || '').slice(0, 80);
-        if (p.reason) log(`💭 ${p.name}：${p.reason}`, 'ai');
         return r.value;
       }
       log(`${p.name} 回复无效（${r.err}），重试…`, 'err');
@@ -708,6 +834,7 @@ function newGame(cfg){
     return {name:nm, type:o.type, model:o.model};
   })).map(p => ({...p, hand:[], bid:null, won:0, score:0, hist:[], reason:'', thinking:false}));
   const n = players.length;
+  RANK_RULE = cfg.rule !== 'suit';
   G = {cfg, players, n, maxRound: cfg.rounds === 'full' ? 60 / n : Math.min(60 / n, +cfg.rounds),
        round:0, dealer: Math.floor(Math.random() * n), trumpCard:null, trump:null, trumpPending:false,
        trick:[], played:[], tricksDone:[], voids:[], phase:'deal', turn:-1, winIdx:null, status:''};
@@ -736,12 +863,11 @@ async function playRound(tok){
   P.forEach(p => { p.hand = deck.splice(0, r); p.bid = null; p.won = 0; p.reason = ''; });
   G.played = []; G.trick = []; G.tricksDone = []; G.voids = P.map(() => new Set());
   G.trumpCard = deck.length ? deck[0] : null; G.trump = null; G.trumpPending = false; G.winIdx = null;
+  G.phase = 'deal'; G.status = '';
   log(`—— 第 ${r} 轮，庄家：${P[G.dealer].name} ——`, 'sys');
 
-  if (!G.trumpCard) log('牌已发完，本轮无王牌。');
-  else if (G.trumpCard.t === 'num'){ G.trump = G.trumpCard.s; log(`翻开 ${cardName(G.trumpCard)}，王牌是 ${SUIT_SYM[G.trump]}${SUIT_CN[G.trump]}。`); }
-  else if (G.trumpCard.t === 'jes') log('翻开小丑，本轮无王牌。');
-  else {
+  if (G.trumpCard && G.trumpCard.t === 'num') G.trump = G.trumpCard.s;
+  else if (G.trumpCard && G.trumpCard.t === 'wiz'){
     G.trumpPending = true; G.phase = 'trump'; G.turn = G.dealer;
     P.forEach(p => sortHand(p.hand, null));
     G.status = `翻开巫师！由庄家 ${P[G.dealer].name} 指定王牌`; render();
@@ -755,23 +881,22 @@ async function playRound(tok){
   G.phase = 'bid';
   for (let i = 1; i <= n; i++){
     const pi = (G.dealer + i) % n;
-    G.turn = pi; G.status = `${P[pi].name} 叫牌中…`; render();
+    G.turn = pi; G.status = ''; render();
     if (P[pi].type !== 'human') await wait(G.cfg.speed * 0.6, tok);
     P[pi].bid = await decide(pi, 'bid', tok);
-    log(`${P[pi].name} 叫 ${P[pi].bid}`);
     render();
   }
   const total = P.reduce((s, p) => s + p.bid, 0);
-  log(`叫牌总数 ${total} / ${r}（${total > r ? '抢墩局' : total < r ? '让墩局' : '持平'}）`, 'sys');
+  log(`叫牌：${P.map(p => `${p.name} ${p.bid}`).join('，')}（合计 ${total} / ${r}）`, 'sys');
 
   // 出牌
   G.phase = 'play';
   let leader = (G.dealer + 1) % n;
   for (let t = 0; t < r; t++){
-    G.trick = []; G.winIdx = null;
+    G.trick = []; G.winIdx = null; G.leader = leader; G.trickNo = t + 1;
     for (let i = 0; i < n; i++){
       const pi = (leader + i) % n;
-      G.turn = pi; G.status = `${P[pi].name} 出牌中…`; render();
+      G.turn = pi; G.status = ''; render();
       if (P[pi].type !== 'human') await wait(G.cfg.speed * 0.5, tok);
       const c = await decide(pi, 'play', tok);
       const ls = leadSuit(G.trick.map(x => x.card));
@@ -815,7 +940,7 @@ async function decide(pi, kind, tok){
   const p = G.players[pi];
   if (p.type === 'human') return waitHuman(kind, tok);
   if (isAI(p.type)){
-    const v = await askLLM(pi, kind, tok);
+    const v = p.type === 'llm' && isJev(p.model || G.cfg.llm.model) ? await askJev(pi, kind, tok) : await askLLM(pi, kind, tok);
     render();
     if (v != null) return v;
   }
@@ -861,33 +986,21 @@ function render(){
     if (i === 0) return;
     const d = document.createElement('div');
     d.className = 'seat' + (G.turn === i ? ' turn' : '');
-    d.innerHTML = `${G.dealer === i ? '<div class="dealer" title="庄家">D</div>' : ''}
-      <div class="nm ${p.thinking ? 'thinking' : ''}">${esc(p.name)}<span class="tag ${p.type}">${TYPE_LABEL[p.type]}${p.type === 'llm' ? ' · ' + esc((p.model || G.cfg.llm.model).split('/').pop()) : p.type === 'claude' ? ' · ' + G.cfg.claudeTier : ''}</span></div>
-      <div class="stats"><span>${bidWonHtml(p)}</span><span>总分 <b>${p.score}</b></span></div>
-      <div class="backs">${'<i></i>'.repeat(p.hand.length)}</div>
-      ${p.reason ? `<div class="reason">💭 ${esc(p.reason)}</div>` : ''}`;
+    d.innerHTML = `<div class="nm ${p.thinking ? 'thinking' : ''}">${esc(p.name)}${G.dealer === i ? '<span class="chip">庄</span>' : ''}<span class="tag ${p.type}">${TYPE_LABEL[p.type]}${p.type === 'llm' ? ' · ' + esc((p.model || G.cfg.llm.model).split('/').pop()) : ''}</span></div>
+      <div class="stats"><span>${bidWonHtml(p)}</span><span>总分 <b>${p.score}</b></span><span>手牌 <b>${p.hand.length}</b></span></div>
+      ${isAI(p.type) && p.reason ? `<div class="reason">${esc(p.reason)}</div>` : ''}`;
     opp.appendChild(d);
   });
   // 王牌
-  const tb = $('trumpBox'); tb.innerHTML = '翻开的牌';
+  const tb = $('trumpBox'); tb.innerHTML = `第 ${G.round}/${G.maxRound} 轮`;
   if (G.trumpCard){ const w = document.createElement('div'); w.style.cssText = 'display:flex;justify-content:center;margin-top:4px'; w.appendChild(cardEl(G.trumpCard)); tb.appendChild(w); }
-  else tb.innerHTML += '<div class="big">（无）</div>';
-  tb.innerHTML += `<div class="big">${G.trumpPending ? '王牌待定' : G.trump ? `王牌 ${SUIT_SYM[G.trump]} ${SUIT_CN[G.trump]}` : '无王牌'}</div>
-    <div>第 ${G.round}/${G.maxRound} 轮</div>`;
-  // 本墩
-  const tr = $('trick'); tr.innerHTML = '';
-  G.trick.forEach((x, k) => {
-    const d = document.createElement('div');
-    d.className = 'played' + (G.winIdx === k ? ' win' : '');
-    d.appendChild(cardEl(x.card));
-    const s = document.createElement('span'); s.textContent = P[x.p].name; d.appendChild(s);
-    tr.appendChild(d);
-  });
+  tb.innerHTML += `<div class="big">${G.trumpPending ? '王牌待定' : G.trump ? `王牌 ${SUIT_SYM[G.trump]} ${SUIT_CN[G.trump]}` : '无王牌'}</div>`;
+  renderStrip();
   $('status').textContent = G.status || '';
   // 自己
   const me = P[0];
   $('me').className = G.turn === 0 ? 'turn' : '';
-  $('meInfo').innerHTML = `<b>你</b>${G.dealer === 0 ? ' <span class="tag" style="background:var(--gold);color:#2a2000">庄家</span>' : ''}
+  $('meInfo').innerHTML = `<b>你</b>${G.dealer === 0 ? '<span class="chip">庄</span>' : ''}
     <span>${bidWonHtml(me)}</span><span>总分 <b>${me.score}</b></span>
     <label class="hint"><input type="checkbox" id="hintToggle" ${G.cfg.hint ? 'checked' : ''}> 显示概率提示</label>`;
   $('hintToggle').onchange = e => { G.cfg.hint = e.target.checked; render(); };
@@ -895,6 +1008,33 @@ function render(){
   renderControls(est);
   renderHand(est);
   renderScoreboard();
+}
+/** 牌桌中央：按本墩（或叫牌）顺序排开所有座位，标出序号、当前轮到谁、谁赢 */
+function renderStrip(){
+  const P = G.players, n = G.n, tr = $('trick');
+  tr.innerHTML = '';
+  if (!G.round) return;
+  const playing = G.phase === 'play';
+  const first = playing ? G.leader : (G.dealer + 1) % n;
+  const title = document.createElement('div'); title.className = 'strip-title';
+  title.textContent = playing ? `第 ${G.trickNo}/${G.round} 墩 · 出牌顺序` : G.phase === 'roundEnd' ? `第 ${G.round} 轮结算` : '叫牌顺序';
+  const strip = document.createElement('div'); strip.className = 'strip';
+  for (let k = 0; k < n; k++){
+    const pi = (first + k) % n, q = P[pi];
+    const d = document.createElement('div');
+    const played = playing ? G.trick[k] : null;
+    d.className = 'slot' + (G.turn === pi ? ' now' : '') + (playing && G.winIdx === k ? ' win' : '');
+    d.insertAdjacentHTML('beforeend', `<div class="ord">${k + 1}</div>`);
+    if (playing) d.appendChild(played ? cardEl(played.card) : Object.assign(document.createElement('div'), {className:'empty'}));
+    else if (G.phase === 'roundEnd'){ const h = q.hist.at(-1); d.insertAdjacentHTML('beforeend', `<div class="bidv ${h.d >= 0 ? 'ok' : 'no'}" style="font-size:20px">${h.d >= 0 ? '+' : ''}${h.d}</div>`); }
+    else d.insertAdjacentHTML('beforeend', q.bid == null ? '<div class="bidv wait">?</div>' : `<div class="bidv">${q.bid}</div>`);
+    const who = document.createElement('div'); who.className = 'who'; who.textContent = q.name + (pi === G.dealer ? '（庄）' : '');
+    d.appendChild(who);
+    if (playing || G.phase === 'roundEnd') d.insertAdjacentHTML('beforeend', `<div class="sub">${bidWonHtml(q)}</div>`);
+    strip.appendChild(d);
+    if (k < n - 1) strip.insertAdjacentHTML('beforeend', '<div class="arrow">›</div>');
+  }
+  tr.append(title, strip);
 }
 function renderControls(est){
   const c = $('controls'); c.innerHTML = '';
@@ -953,7 +1093,7 @@ function renderHand(est){
 function renderScoreboard(){
   const P = G.players;
   let h = '<table><thead><tr><th>轮</th>' + P.map(p => `<th>${esc(p.name)}</th>`).join('') + '</tr></thead><tbody>';
-  for (let r = 1; r <= G.maxRound; r++){
+  for (let r = 1; r <= G.round; r++){
     h += `<tr class="${r === G.round ? 'cur' : ''}"><td>${r}</td>`;
     P.forEach(p => {
       const x = p.hist[r - 1];
@@ -994,7 +1134,7 @@ function renderOppRows(){
     const row = document.createElement('div'); row.className = 'opp-row';
     row.innerHTML = `<span>对手 ${i + 1}</span>
       <select>${['rational','aggressive','cautious','claude','llm'].map(t => `<option value="${t}" ${o.type === t ? 'selected' : ''}>${TYPE_LABEL[t]}${t === 'llm' ? '（OpenRouter）' : t === 'claude' ? '（页面内置）' : ''}</option>`).join('')}</select>
-      <input list="modelList" placeholder="模型（留空 = 默认模型）" value="${esc(o.model || '')}">`;
+      <input list="modelList" placeholder="模型（留空 = 默认，Jev）" value="${esc(o.model || '')}">`;
     const sel = row.querySelector('select'), inp = row.querySelector('input');
     const upd = () => inp.style.visibility = sel.value === 'llm' ? 'visible' : 'hidden';
     sel.onchange = upd; upd();
@@ -1004,15 +1144,17 @@ function renderOppRows(){
 function readCfg(){
   const opps = [...document.querySelectorAll('.opp-row')].map(r => ({type:r.querySelector('select').value, model:r.querySelector('input').value.trim()}));
   return {
-    opps, rounds:$('roundMode').value, hook:$('hookRule').checked, speed:+$('speed').value, autoNext:$('autoNext').checked,
+    opps, rounds:$('roundMode').value, rule:$('ruleMode').value, hook:$('hookRule').checked, speed:+$('speed').value, autoNext:$('autoNext').checked,
     hint: G?.cfg?.hint || false, claudeTier:$('claudeTier').value,
-    llm:{key:$('apiKey').value.trim(), model:$('model').value.trim() || 'openai/gpt-4o-mini', endpoint:$('endpoint').value.trim(),
+    aiHints:$('aiHints').checked,
+    llm:{key:$('apiKey').value.trim(), model:$('model').value.trim() || 'typesafe/jev-1.13', endpoint:$('endpoint').value.trim(), jevEndpoint:$('jevEndpoint').value.trim(),
          temperature:+$('temperature').value, timeout:+$('timeout').value || 60, system:$('sysPrompt').value || DEFAULT_SYSTEM_PROMPT},
   };
 }
 function saveCfg(cfg){
   LS.set('opps', cfg.opps);
   LS.set('opts', {oppCount:cfg.opps.length, rounds:cfg.rounds, claudeTier:cfg.claudeTier, hook:cfg.hook, speed:cfg.speed, autoNext:cfg.autoNext,
+                  rule:cfg.rule, aiHints:cfg.aiHints, jevEndpoint:cfg.llm.jevEndpoint,
                   model:cfg.llm.model, endpoint:cfg.llm.endpoint, temperature:cfg.llm.temperature, timeout:cfg.llm.timeout,
                   system: cfg.llm.system === DEFAULT_SYSTEM_PROMPT ? null : cfg.llm.system});
   if ($('saveKey').checked) LS.set('key', cfg.llm.key); else LS.del('key');
@@ -1027,6 +1169,9 @@ function loadCfg(){
   $('autoNext').checked = !!o.autoNext;
   if (o.model) $('model').value = o.model;
   if (o.endpoint) $('endpoint').value = o.endpoint;
+  if (o.jevEndpoint) $('jevEndpoint').value = o.jevEndpoint;
+  if (o.rule) $('ruleMode').value = o.rule;
+  $('aiHints').checked = !!o.aiHints;
   if (o.temperature != null) $('temperature').value = o.temperature;
   if (o.timeout) $('timeout').value = o.timeout;
   $('sysPrompt').value = o.system || DEFAULT_SYSTEM_PROMPT;
@@ -1067,8 +1212,14 @@ $('btnStart').onclick = () => {
 $('btnTest').onclick = async () => {
   const cfg = readCfg(); $('testRes').textContent = '请求中…';
   try{
-    const txt = await callLLM([{role:'user', content:'只回复 JSON：{"ok": true}'}], cfg.llm.model, cfg.llm);
-    $('testRes').textContent = '✅ 成功：' + txt.slice(0, 60);
+    if (isJev(cfg.llm.model)){
+      const d = await postJSON(cfg.llm.jevEndpoint, {model:cfg.llm.model, state:{test:'connection check'},
+        questions:{ok:{type:'choice', instructions:'选 yes', criteria:{yes:null, no:null}}}}, cfg.llm);
+      $('testRes').textContent = '✅ Jev 可用：' + JSON.stringify(d.answers || d).slice(0, 80);
+    } else {
+      const txt = await callLLM([{role:'user', content:'只回复 JSON：{"ok": true}'}], cfg.llm.model, cfg.llm);
+      $('testRes').textContent = '✅ 成功：' + txt.slice(0, 60);
+    }
   } catch (e){ $('testRes').textContent = '❌ ' + e.message; }
 };
 loadCfg();
